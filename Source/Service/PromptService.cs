@@ -29,9 +29,17 @@ public static class PromptService
         int count = 0;
         foreach (Pawn pawn in pawns)
         {
-            // Main pawn gets more detail, others get basic info
-            InfoLevel infoLevel = pawn == pawns[0] ? InfoLevel.Full : InfoLevel.Normal;
-            string pawnContext = CreatePawnContext(pawn, infoLevel);
+            string pawnContext;
+            if (pawn.IsPlayer())
+            {
+                pawnContext =  $"{pawn.LabelShort}\nRole: {pawn.GetRole()}";   
+            }
+            else
+            {
+                // Main pawn gets more detail, others get basic info
+                InfoLevel infoLevel = pawn == pawns[0] ? InfoLevel.Full : InfoLevel.Normal;
+                pawnContext = CreatePawnContext(pawn, infoLevel);
+            }
             Cache.Get(pawn).Context = pawnContext;
             count++;
             context.AppendLine();
@@ -48,12 +56,13 @@ public static class PromptService
         StringBuilder sb = new StringBuilder();
 
         var name = pawn.LabelShort;
-        var title = pawn.story.title == null ? "" : $"({pawn.story.title})";
+        var title = pawn.story?.title == null ? "" : $"({pawn.story.title})";
         var genderAndAge = Regex.Replace(pawn.MainDesc(false), @"\(\d+\)", "");
         sb.AppendLine($"{name} {title} ({genderAndAge})");
 
-        var role = $"Role: {pawn.GetRole(true)}";
-        sb.AppendLine(role);
+        var role = pawn.GetRole(true);
+        if (role != null)
+            sb.AppendLine($"Role: {role}");
 
         if (ModsConfig.BiotechActive && pawn.genes?.Xenotype != null)
         {
@@ -115,7 +124,7 @@ public static class PromptService
         if (pawn.IsEnemy() || pawn.IsVisitor())
             return sb.ToString();
 
-        if (pawn.story.Childhood != null)
+        if (pawn.story?.Childhood != null)
         {
             var childHood =
                 $"Childhood: {pawn.story.Childhood.title}({pawn.story.Childhood.titleShort})";
@@ -123,7 +132,7 @@ public static class PromptService
             sb.AppendLine(childHood);
         }
 
-        if (pawn.story.Adulthood != null)
+        if (pawn.story?.Adulthood != null)
         {
             var adulthood =
                 $"Adulthood: {pawn.story.Adulthood.title}({pawn.story.Adulthood.titleShort})";
@@ -131,10 +140,10 @@ public static class PromptService
             sb.AppendLine(adulthood);
         }
 
-        var traits = "Traits: ";
-        foreach (Trait trait in pawn.story.traits.TraitsSorted)
+        var traits = "";
+        foreach (Trait trait in pawn.story?.traits?.TraitsSorted ?? Enumerable.Empty<Trait>())
         {
-            foreach (TraitDegreeData degreeData in trait.def.degreeDatas)
+            foreach (var degreeData in trait.def.degreeDatas.Where(degreeData => degreeData.degree == trait.Degree))
             {
                 if (degreeData.degree == trait.Degree)
                 {
@@ -145,13 +154,13 @@ public static class PromptService
                 }
             }
         }
-
-        sb.AppendLine(traits);
+        if (traits != "")
+            sb.AppendLine($"Traits: {traits}");
 
         if (infoLevel != InfoLevel.Short)
         {
             var skills = "Skills: ";
-            foreach (SkillRecord skillRecord in pawn.skills.skills)
+            foreach (SkillRecord skillRecord in pawn.skills.skills ?? Enumerable.Empty<SkillRecord>())
             {
                 skills += $"{skillRecord.def.label}: {skillRecord.Level}({TranslatePassionToString(skillRecord.passion)}), ";
             }
@@ -161,36 +170,16 @@ public static class PromptService
 
         return sb.ToString();
     }
-    public static string CreatePawnBackstory_ToolUser(Pawn pawn, InfoLevel infoLevel = InfoLevel.Normal)
-    {
-        StringBuilder sb = new StringBuilder();
-
-        var name = pawn.LabelShort;
-        var type = pawn.def.label;
-
-        sb.AppendLine($"{name}");
-
-        var role = $"Role: {pawn.GetRole(true)}";
-        sb.AppendLine(role);
-
-        sb.AppendLine($"{name} 是一个 {type} 型号的机器人.");
-
-        return sb.ToString();
-    }
 
     public static string CreatePawnContext(Pawn pawn, InfoLevel infoLevel = InfoLevel.Normal)
     {
         StringBuilder sb = new StringBuilder();
 
-        if (pawn.RaceProps.Humanlike)
-            sb.Append(CreatePawnBackstory(pawn, infoLevel));
-        
-        else if (pawn.RaceProps.ToolUser)
-            sb.Append(CreatePawnBackstory_ToolUser(pawn, infoLevel));
+        sb.Append(CreatePawnBackstory(pawn, infoLevel));
 
         // add Health
         var method = AccessTools.Method(typeof(HealthCardUtility), "VisibleHediffs");
-        IEnumerable<Hediff> hediffs = (IEnumerable<Hediff>)method.Invoke(null, new object[] { pawn, false });
+        IEnumerable<Hediff> hediffs = (IEnumerable<Hediff>)method.Invoke(null, [pawn, false]);
 
         var hediffDict = hediffs
             .GroupBy(hediff => hediff.def)
@@ -213,20 +202,24 @@ public static class PromptService
             return sb.ToString();
 
         var m = pawn.needs?.mood;
-        var mood = pawn.Downed
-            ? "危急: 倒地"
-            : pawn.InMentalState
-                ? $"Mood: {pawn.MentalState?.InspectLine} (精神已崩溃)"
-                : $"Mood: {m?.MoodString ?? "N/A"} ({(int)((m?.CurLevelPercentage ?? 0) * 100)}%)";
-        if (pawn.RaceProps.Humanlike)sb.AppendLine(mood);
-
-        var thoughts = "Memory: ";
+        if (m?.MoodString != null)
+        {
+            var mood = pawn.Downed && !pawn.IsBaby()
+                ? "危急: 倒地"
+                : pawn.InMentalState
+                    ? $"Mood: {pawn.MentalState?.InspectLine} (精神已崩溃)"
+                    : $"Mood: {m.MoodString} ({(int)(m.CurLevelPercentage * 100)}%)";
+            sb.AppendLine(mood);
+        }
+        
+        var thoughts = "";
         foreach (Thought thought in GetThoughts(pawn).Keys)
         {
             thoughts += $"{Sanitize(thought.LabelCap)}, ";
         }
 
-        if (pawn.RaceProps.Humanlike)sb.AppendLine(thoughts);
+        if (thoughts != "")
+            sb.AppendLine($"Memory: {thoughts}");
 
         if (pawn.IsSlave || pawn.IsPrisoner)
             sb.AppendLine(pawn.GetPrisonerSlaveStatus());
@@ -247,21 +240,21 @@ public static class PromptService
 
         if (infoLevel != InfoLevel.Short)
         {
-            var equipment = "Equipment: ";
+            var equipments = "";
             if (pawn.equipment?.Primary != null)
-                equipment += $"Weapon: {pawn.equipment.Primary.LabelCap}, ";
+                equipments += $"Weapon: {pawn.equipment.Primary.LabelCap}, ";
 
             var wornApparel = pawn.apparel?.WornApparel;
             var apparelLabels =
-                wornApparel != null ? wornApparel.Select(a => a.LabelCap) : Enumerable.Empty<string>();
+                wornApparel != null ? wornApparel.Select(a => a.LabelCap) : [];
 
             if (apparelLabels.Any())
             {
-                equipment += $"Apparel: {string.Join(", ", apparelLabels)}";
+                equipments += $"Apparel: {string.Join(", ", apparelLabels)}";
             }
 
-            if (equipment != "Equipment: ")
-                sb.AppendLine(equipment);
+            if (equipments != "")
+                sb.AppendLine($"Equipments: {equipments}");
         }
 
         return sb.ToString();
@@ -282,7 +275,7 @@ public static class PromptService
         // Add the conversation part
         if (talkRequest.TalkType == TalkType.User)
         {
-            if (talkRequest.Initiator == talkRequest.Recipient)
+            if (talkRequest.Initiator.IsPlayer())
             {
                 sb.Append("一个来自世界之外的——超凡智能,一个同情殖民地的超维度观测者——对 "+shortName+$" 说: {talkRequest.Prompt}");
             }
@@ -305,6 +298,7 @@ public static class PromptService
                 {
                     talkRequest.Prompt = null;
                 }
+                
                 talkRequest.TalkType = TalkType.Urgent;
                 if (pawns[0].IsSlave || pawns[0].IsPrisoner)
                     sb.Append($"{shortName} 发起短对话 (着急)");
@@ -318,7 +312,7 @@ public static class PromptService
 
             if (pawns[0].InMentalState)
                 sb.Append($"\n疯疯癫癫,略带戏剧性 (精神崩溃)");
-            else if (pawns[0].Downed)
+            else if (pawns[0].Downed && !pawns[0].IsBaby())
                 sb.Append($"\n(疼痛倒地,简短勉强的对话)");
             else
                 sb.Append($"\n{talkRequest.Prompt}");

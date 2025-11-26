@@ -12,20 +12,13 @@ public static class PawnService
 {
     public static bool IsTalkEligible(this Pawn pawn)
     {
-        if (pawn.DestroyedOrNull() || !pawn.Spawned || pawn.Dead)
-            return false;
-
-        if (!pawn.RaceProps.Humanlike && !pawn.RaceProps.ToolUser)
-            return false;
-
-        if (pawn.RaceProps.intelligence < Intelligence.ToolUser)
-            return false;
-
-        if (!pawn.health.capacities.CapableOf(PawnCapacityDefOf.Talking)&& !pawn.RaceProps.ToolUser)
-            return false;
-
-        if (pawn.skills?.GetSkill(SkillDefOf.Social) == null && !pawn.RaceProps.ToolUser)
-            return false;
+        if (pawn.IsPlayer()) return true;
+        if (pawn.HasVocalLink()) return true;
+        if (pawn.DestroyedOrNull() || !pawn.Spawned || pawn.Dead) return false;
+        if (!pawn.RaceProps.Humanlike && !pawn.RaceProps.ToolUser) return false;
+        if (pawn.RaceProps.intelligence < Intelligence.ToolUser) return false;
+        if (!pawn.health.capacities.CapableOf(PawnCapacityDefOf.Talking)&& !pawn.RaceProps.ToolUser) return false;
+        if (pawn.skills?.GetSkill(SkillDefOf.Social) == null) return false;
 
         RimTalkSettings settings = Settings.Get();
         return pawn.IsFreeColonist ||
@@ -33,6 +26,7 @@ public static class PawnService
                (settings.AllowPrisonersToTalk && pawn.IsPrisoner) ||
                (settings.AllowOtherFactionsToTalk && pawn.IsVisitor()) ||
                (settings.AllowEnemiesToTalk && pawn.IsEnemy()) ||
+               (settings.AllowBabiesToTalk && pawn.IsBaby()) ||
                pawn.RaceProps.ToolUser;
     }
 
@@ -43,7 +37,7 @@ public static class PawnService
 
     public static bool IsInDanger(this Pawn pawn, bool includeMentalState = false)
     {
-        if (pawn == null) return false;
+        if (pawn == null || pawn.IsPlayer()) return false;
         if (pawn.Dead) return true;
         if (pawn.Downed) return true;
         if (!pawn.health.capacities.CapableOf(PawnCapacityDefOf.Moving)) return true;
@@ -83,6 +77,7 @@ public static class PawnService
     public static string GetRole(this Pawn pawn, bool includeFaction = false)
     {
         if (pawn == null) return null;
+        if (pawn.IsPlayer()) return "来自世界外的声音";
         if (pawn.IsPrisoner) return "囚犯";
         if (pawn.IsSlave) return "奴隶";
         if (pawn.IsEnemy())
@@ -96,7 +91,7 @@ public static class PawnService
             return includeFaction && pawn.Faction != null ? $"来访人群({pawn.Faction.Name},与用户殖民地关系:{pawn.Faction.PlayerGoodwill})" : "访客";
         if (pawn.IsQuestLodger()) return "住客";
         if (pawn.IsFreeColonist) return pawn.GetMapRole() == MapRole.Invading ? "攻击者" : "殖民者";
-        return "未知";
+        return null;
     }
 
     public static bool IsTrader(this Pawn pawn)
@@ -115,6 +110,11 @@ public static class PawnService
     public static bool IsEnemy(this Pawn pawn)
     {
         return pawn != null && pawn.HostileTo(Faction.OfPlayer);
+    }
+
+    public static bool IsBaby(this Pawn pawn)
+    {
+        return pawn.ageTracker?.CurLifeStage?.developmentalStage < DevelopmentalStage.Child;
     }
 
     public static (string, bool) GetPawnStatusFull(this Pawn pawn, List<Pawn> nearbyPawns)

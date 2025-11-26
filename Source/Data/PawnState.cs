@@ -75,6 +75,8 @@ public class PawnState(Pawn pawn)
 
     public bool CanDisplayTalkStirct()
     {
+        if (Pawn.IsPlayer()) return true;
+        
         if (WorldRendererUtility.CurrentWorldRenderMode == WorldRenderMode.Planet || Find.CurrentMap == null ||
             Pawn.Map != Find.CurrentMap || !Pawn.Spawned)
         {
@@ -84,15 +86,12 @@ public class PawnState(Pawn pawn)
         if (!Settings.Get().DisplayTalkWhenDrafted && Pawn.Drafted)
             return false;
 
-        return Pawn.Awake()
-               && !Pawn.Dead
-               && Pawn.CurJobDef != JobDefOf.LayDown
-               && Pawn.CurJobDef != JobDefOf.LayDownAwake
-               && Pawn.CurJobDef != JobDefOf.LayDownResting
-               && (TalkInitiationWeight > 0 || Pawn.RaceProps.ToolUser);
+        return !Pawn.Dead && TalkInitiationWeight > 0;
     }
     public bool CanDisplayTalk()
     {
+        if (Pawn.IsPlayer()) return true;
+        
         if (WorldRendererUtility.CurrentWorldRenderMode == WorldRenderMode.Planet || Find.CurrentMap == null /*||
             Pawn.Map != Find.CurrentMap*/ || !Pawn.Spawned)
         {
@@ -102,16 +101,14 @@ public class PawnState(Pawn pawn)
         if (!Settings.Get().DisplayTalkWhenDrafted && Pawn.Drafted)
             return false;
 
-        return /*Pawn.Awake()
-               && */!Pawn.Dead
-               /*&& Pawn.CurJobDef != JobDefOf.LayDown*/
-               /*&& Pawn.CurJobDef != JobDefOf.LayDownAwake
-               && Pawn.CurJobDef != JobDefOf.LayDownResting*/;
+        return !Pawn.Dead && TalkInitiationWeight > 0;
     }
 
     public bool CanGenerateTalk()
     {
-        return !IsGeneratingTalk && CanDisplayTalkStirct() && TalkResponses.Empty() 
+        if (Pawn.IsPlayer()) return true;
+        
+        return !IsGeneratingTalk && CanDisplayTalk() && Pawn.Awake() && TalkResponses.Empty() 
                && CommonUtil.HasPassed(LastTalkTick, Settings.Get().TalkInterval);;
     }
     

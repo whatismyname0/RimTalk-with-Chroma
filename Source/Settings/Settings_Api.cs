@@ -91,7 +91,7 @@ public partial class Settings
         GUI.color = Color.white;
         Text.Font = GameFont.Small;
 
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         // Show Advanced Settings button
         Rect advancedButtonRect = listingStandard.GetRect(30f);
@@ -120,7 +120,7 @@ public partial class Settings
             settings.UseSimpleConfig = true;
         }
 
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         // Cloud providers option with description
         Rect radioRect1 = listingStandard.GetRect(24f);
@@ -157,7 +157,7 @@ public partial class Settings
         GUI.color = Color.white;
         Text.Font = GameFont.Small;
 
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         // Draw appropriate section based on selection
         if (settings.UseCloudProviders)
@@ -366,40 +366,40 @@ public partial class Settings
     }
 
     private void ShowModelSelectionMenu(ApiConfig config)
+{
+    if (string.IsNullOrWhiteSpace(config.ApiKey))
     {
-        if (string.IsNullOrWhiteSpace(config.ApiKey))
-        {
-            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> { new FloatMenuOption("RimTalk.Settings.EnterApiKey".Translate(), null) }));
-            return;
-        }
-
-        if (config.Provider == AIProvider.Google)
-        {
-            List<FloatMenuOption> options = ModelOptions.Select(model => new FloatMenuOption(model, () => config.SelectedModel = model)).ToList();
-            Find.WindowStack.Add(new FloatMenu(options));
-        }
-        else
-        {
-            string url = GetModelApiUrl(config.Provider);
-            if (url == null) return;
-
-            FetchModels(config.ApiKey, url).ContinueWith(task =>
-            {
-                var models = task.Result;
-                List<FloatMenuOption> options = new List<FloatMenuOption>();
-                if (models != null && models.Any())
-                {
-                    options.AddRange(models.Select(model => new FloatMenuOption(model, () => config.SelectedModel = model)));
-                }
-                else
-                {
-                    options.Add(new FloatMenuOption("(no models found - check API Key)", null));
-                }
-                options.Add(new FloatMenuOption("Custom", () => config.SelectedModel = "Custom"));
-                Find.WindowStack.Add(new FloatMenu(options));
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-        }
+        Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> { new FloatMenuOption("RimTalk.Settings.EnterApiKey".Translate(), null) }));
+        return;
     }
+
+    if (config.Provider == AIProvider.Google)
+    {
+        List<FloatMenuOption> options = ModelOptions.Select(model => new FloatMenuOption(model, () => config.SelectedModel = model)).ToList();
+        Find.WindowStack.Add(new FloatMenu(options));
+    }
+    else
+    {
+        string url = GetModelApiUrl(config.Provider);
+        if (url == null) return;
+
+        FetchModels(config.ApiKey, url).ContinueWith(task =>
+        {
+            var models = task.Result;
+            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            if (models != null && models.Any())
+            {
+                options.AddRange(models.Select(model => new FloatMenuOption(model, () => config.SelectedModel = model)));
+            }
+            else
+            {
+                options.Add(new FloatMenuOption("(no models found - check API Key)", null));
+            }
+            options.Add(new FloatMenuOption("Custom", () => config.SelectedModel = "Custom"));
+            Find.WindowStack.Add(new FloatMenu(options));
+        }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+}
 
     private string GetModelApiUrl(AIProvider provider)
     {

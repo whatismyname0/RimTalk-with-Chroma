@@ -46,7 +46,7 @@ public partial class Settings
         Widgets.Label(cooldownLabelRect, cooldownLabel);
         settings.TalkInterval = (int)listingStandard.Slider(settings.TalkInterval, 1, 60);
 
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         // --- Checkboxes in two columns ---
 
@@ -56,7 +56,7 @@ public partial class Settings
 
         // Get a rect for the entire checkbox section. We'll manually manage the layout within this.
         // The height is an estimate; we will adjust the main listing's Y position later.
-        Rect checkboxSectionRect = listingStandard.GetRect(160f);
+        Rect checkboxSectionRect = listingStandard.GetRect(200f);
 
         // --- Left Column ---
         Rect leftColumnRect = new Rect(checkboxSectionRect.x, checkboxSectionRect.y, columnWidth,
@@ -67,15 +67,15 @@ public partial class Settings
         leftListing.CheckboxLabeled("RimTalk.Settings.OverrideInteractions".Translate().ToString(),
             ref settings.ProcessNonRimTalkInteractions,
             "RimTalk.Settings.OverrideInteractionsTooltip".Translate().ToString());
-        leftListing.Gap(12f);
+        leftListing.Gap();
         leftListing.CheckboxLabeled("RimTalk.Settings.AllowSimultaneousConversations".Translate().ToString(),
             ref settings.AllowSimultaneousConversations,
             "RimTalk.Settings.AllowSimultaneousConversationsTooltip".Translate().ToString());
-        leftListing.Gap(12f);
+        leftListing.Gap();
         leftListing.CheckboxLabeled("RimTalk.Settings.DisplayTalkWhenDrafted".Translate().ToString(),
             ref settings.DisplayTalkWhenDrafted,
             "RimTalk.Settings.DisplayTalkWhenDraftedTooltip".Translate().ToString());
-        leftListing.Gap(12f);
+        leftListing.Gap();
         leftListing.CheckboxLabeled("RimTalk.Settings.AllowCustomConversation".Translate().ToString(),
             ref settings.AllowCustomConversation,
             "RimTalk.Settings.AllowCustomConversationTooltip".Translate().ToString());
@@ -90,24 +90,27 @@ public partial class Settings
 
         rightListing.CheckboxLabeled("RimTalk.Settings.AllowSlavesToTalk".Translate().ToString(),
             ref settings.AllowSlavesToTalk, "RimTalk.Settings.AllowSlavesToTalkTooltip".Translate().ToString());
-        rightListing.Gap(12f);
+        rightListing.Gap();
         rightListing.CheckboxLabeled("RimTalk.Settings.AllowPrisonersToTalk".Translate().ToString(),
             ref settings.AllowPrisonersToTalk, "RimTalk.Settings.AllowPrisonersToTalkTooltip".Translate().ToString());
-        rightListing.Gap(12f);
+        rightListing.Gap();
         rightListing.CheckboxLabeled("RimTalk.Settings.AllowOtherFactionsToTalk".Translate().ToString(),
             ref settings.AllowOtherFactionsToTalk,
             "RimTalk.Settings.AllowOtherFactionsToTalkTooltip".Translate().ToString());
-        rightListing.Gap(12f);
+        rightListing.Gap();
         rightListing.CheckboxLabeled("RimTalk.Settings.AllowEnemiesToTalk".Translate().ToString(),
             ref settings.AllowEnemiesToTalk, "RimTalk.Settings.AllowEnemiesToTalkTooltip".Translate().ToString());
+        rightListing.Gap();
+        rightListing.CheckboxLabeled("RimTalk.Settings.AllowBabiesToTalk".Translate().ToString(),
+            ref settings.AllowBabiesToTalk, "RimTalk.Settings.AllowBabiesToTalkTooltip".Translate().ToString());
 
         rightListing.End();
 
         // Advance the main listing standard's vertical position based on the taller of the two columns.
         float tallerColumnHeight = Mathf.Max(leftListing.CurHeight, rightListing.CurHeight);
-        listingStandard.Gap(tallerColumnHeight - 160f); // Adjust for the initial GetRect height
+        listingStandard.Gap(tallerColumnHeight - 200f); // Adjust for the initial GetRect height
 
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         // --- Dropdown for PauseAtSpeed ---
         Rect pauseLineRect = listingStandard.GetRect(30f);
@@ -150,7 +153,7 @@ public partial class Settings
 
         TooltipHandler.TipRegion(pauseLineRect, "RimTalk.Settings.DisableAiAtSpeedTooltip".Translate().ToString());
 
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         // --- Dropdown for Button Display Mode ---
         var buttonDisplayRect = listingStandard.GetRect(30f);
@@ -185,7 +188,7 @@ public partial class Settings
         var bubbleFadeTipRect = listingStandard.GetRect(Text.CalcHeight(bubbleFadeTip, listingStandard.ColumnWidth));
         Widgets.Label(bubbleFadeTipRect, bubbleFadeTip);
         GUI.color = Color.white;
-        listingStandard.Gap(12f);
+        listingStandard.Gap();
 
         if (listingStandard.ButtonText("RimTalk.Settings.ResetToDefault".Translate().ToString()))
         {
@@ -197,6 +200,7 @@ public partial class Settings
             settings.AllowPrisonersToTalk = true;
             settings.AllowOtherFactionsToTalk = false;
             settings.AllowEnemiesToTalk = false;
+            settings.AllowBabiesToTalk = true;
             settings.AllowCustomConversation = true;
             settings.UseSimpleConfig = true;
             settings.DisableAiAtSpeed = 0;

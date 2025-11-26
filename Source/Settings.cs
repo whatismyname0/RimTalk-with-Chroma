@@ -155,6 +155,11 @@ public partial class Settings : Mod
         sb.AppendLine(settings.CustomContext);
         sb.AppendLine(settings.CustomAIPromptOfChromaSearchQueryGeneration);
         sb.AppendLine(settings.AllowSimultaneousConversations.ToString());
+        sb.AppendLine(settings.AllowSlavesToTalk.ToString());
+        sb.AppendLine(settings.AllowPrisonersToTalk.ToString());
+        sb.AppendLine(settings.AllowOtherFactionsToTalk.ToString());
+        sb.AppendLine(settings.AllowEnemiesToTalk.ToString());
+        sb.AppendLine(settings.AllowBabiesToTalk.ToString());
 
         return sb.ToString().GetHashCode();
     }

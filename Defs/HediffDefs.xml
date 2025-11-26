@@ -10,4 +10,12 @@
         <everCurableByItem>false</everCurableByItem>
         <scenarioCanAdd>false</scenarioCanAdd>
     </HediffDef>
+    <HediffDef>
+        <defName>VocalLinkImplant</defName>
+        <label>vocal link implant</label>
+        <description>This implant lets the creature speak in ways it couldn’t before.\n\nClick to modify persona.</description>
+        <hediffClass>HediffWithComps</hediffClass>
+        <isBad>false</isBad>
+        <defaultLabelColor>(0.5, 1.0, 0.5)</defaultLabelColor>
+    </HediffDef>
 </Defs>

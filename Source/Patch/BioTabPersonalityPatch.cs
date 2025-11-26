@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
 using RimTalk.Data;
+using RimTalk.Service;
 using RimTalk.UI;
 using RimWorld;
 using UnityEngine;
@@ -18,7 +19,7 @@ public static class BioTabPersonalityPatch
 
     private static void AddPersonaElement(Pawn pawn)
     {
-        if (pawn?.RaceProps?.Humanlike != true || !pawn.IsFreeColonist)
+        if (!pawn.IsColonist && !pawn.IsPrisonerOfColony && !pawn.HasVocalLink())
         {
             return;
         }

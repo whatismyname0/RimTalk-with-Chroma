@@ -18,8 +18,8 @@ public static class RelationsService
 
         foreach (Pawn otherPawn in PawnSelector.GetAllNearByPawns(pawn))
         {
-            if (otherPawn == pawn || !otherPawn.RaceProps.Humanlike || otherPawn.Dead ||
-                otherPawn.relations.hidePawnRelations) continue;
+            if (otherPawn == pawn || (!otherPawn.RaceProps.Humanlike && !otherPawn.HasVocalLink()) || otherPawn.Dead ||
+                otherPawn.relations is { hidePawnRelations: true }) continue;
 
             string label = null;
 

@@ -47,8 +47,8 @@ public static class CustomDialogueService
     
     public static bool CanTalk(Pawn initiator, Pawn recipient)
     {
-        // Talking to oneself is always allowed
-        if (initiator == recipient) return true;
+        // Player talking to a pawn is always allowed
+        if (initiator.IsPlayer()) return true;
         
         float distance = initiator.Position.DistanceTo(recipient.Position);
         return distance <= TalkDistance /*&& InSameRoom(initiator, recipient)*/;
@@ -64,7 +64,13 @@ public static class CustomDialogueService
         if (recipientState != null && recipientState.CanDisplayTalkStirct())
             recipientState.AddTalkRequest(message, initiator, TalkType.User);
 
-        if (initiator != recipient)
+        if (initiator.IsPlayer())
+        {
+            ApiLog apiLog = ApiHistory.AddUserHistory("RimTalk.CustomDialogue.Player".Translate(), message);
+            apiLog.SpokenTick = GenTicks.TicksGame;
+            Overlay.NotifyLogUpdated();
+        }
+        else
         {
             ApiLog apiLog = ApiHistory.AddUserHistory(initiator.LabelShort, message);
             TalkResponse talkResponse = new(TalkType.User, initiator.LabelShort, message)
@@ -72,12 +78,6 @@ public static class CustomDialogueService
                 Id = apiLog.Id
             };
             Cache.Get(initiator).TalkResponses.Insert(0, talkResponse);
-        }
-        else
-        {
-            ApiLog apiLog = ApiHistory.AddUserHistory("RimTalk.CustomDialogue.Player".Translate(), message);
-            apiLog.SpokenTick = GenTicks.TicksGame;
-            Overlay.NotifyLogUpdated();
         }
     }
     
@@ -87,4 +87,3 @@ public static class CustomDialogueService
         public readonly string Message = message;
     }
 }
-
