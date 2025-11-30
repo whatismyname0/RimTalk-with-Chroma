@@ -1,14 +1,16 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimTalk.Data;
 using RimWorld;
 using Verse;
+using Verse.AI;
 using Verse.AI.Group;
 using Cache = RimTalk.Data.Cache;
 
-namespace RimTalk.Service;
+namespace RimTalk.Util;
 
-public static class PawnService
+public static class PawnUtil
 {
     public static bool IsTalkEligible(this Pawn pawn)
     {
@@ -119,71 +121,90 @@ public static class PawnService
 
     public static (string, bool) GetPawnStatusFull(this Pawn pawn, List<Pawn> nearbyPawns)
     {
-        if (pawn == null) return (null, false);
+        if (pawn == null)
+            return (null, false);
+
+        // special-case for "player pawn"
+        if (pawn.IsPlayer())
+            return ("来自世界之外的声音", false);
 
         bool isInDanger = false;
+        var lines = new List<string>();
 
-        List<string> parts = new List<string>();
+        // collect all "relevant pawns"
+        var relevantPawns = new List<Pawn> { pawn };
+        if (nearbyPawns != null)
+            relevantPawns.AddRange(nearbyPawns);
 
-        // --- 1. Add status ---
-        parts.Add($"{pawn.LabelShort} ({pawn.GetActivity()})");
+        if (pawn.CurJob != null)
+            AddJobTargetsToRelevantPawns(pawn.CurJob, relevantPawns);
 
-        if (IsInDanger(pawn))
+        if (nearbyPawns != null)
         {
-            isInDanger = true;
+            foreach (var near in nearbyPawns.Where(near => near.CurJob != null))
+                AddJobTargetsToRelevantPawns(near.CurJob, relevantPawns);
         }
 
-        // --- 2. Nearby pawns ---
-        if (nearbyPawns.Any())
+        // first line uses name + activity AFTER name replacement
+        string activity = ReplacePawnNames(pawn.GetActivity());
+        string name = ReplacePawnNames(pawn.LabelShort);
+        lines.Add($"{name} {activity}");
+
+        if (pawn.IsInDanger())
+            isInDanger = true;
+
+        // Nearby critical statuses: same logic, but wrapped in ReplacePawnNames(...)
+        if (nearbyPawns != null && nearbyPawns.Any())
         {
-            // Collect critical statuses of nearby pawns
-            var nearbyNotableStatuses = nearbyPawns
-                .Where(nearbyPawn => nearbyPawn.Faction == pawn.Faction && nearbyPawn.IsInDanger(true))
+            var nearbyNotable = nearbyPawns
+                .Where(p => p.Faction == pawn.Faction && p.IsInDanger(true))
                 .Take(2)
-                .Select(other => $"{other.LabelShort} in {other.GetActivity().Replace("\n", "; ")}")
-                .ToList();
-
-            if (nearbyNotableStatuses.Any())
-            {
-                parts.Add("附近状态值得关心的人: " + string.Join("; ", nearbyNotableStatuses));
-                isInDanger = true;
-            }
-
-            // Names of nearby pawns
-            var nearbyNames = nearbyPawns
-                .Select(nearbyPawn =>
+                .Select(other =>
                 {
-                    string name = $"{nearbyPawn.LabelShort}({nearbyPawn.GetRole()})";
-                    if (Cache.Get(nearbyPawn) is not null)
-                    {
-                        name = $"{name} ({nearbyPawn.GetActivity().StripTags()})";
-                    }
-
-                    return name;
+                    string otherActivity = ReplacePawnNames(other.GetActivity());
+                    return $"{ReplacePawnNames(other.LabelShort)} in {otherActivity.Replace("\n", "; ")}";
                 })
                 .ToList();
 
-            string nearbyText = nearbyNames.Count == 0
-                ? "无"
-                : nearbyNames.Count > 3
-                    ? string.Join(", ", nearbyNames.Take(3)) + "和其他人"
-                    : string.Join(", ", nearbyNames);
+            if (nearbyNotable.Any())
+            {
+                lines.Add("附近状态值得关心的人: " + string.Join("; ", nearbyNotable));
+                isInDanger = true;
+            }
 
-            parts.Add($"附近的人: {nearbyText}");
+            var nearbyList = nearbyPawns
+                .Select(p =>
+                {
+                    string s = ReplacePawnNames(p.LabelShort);
+                    if (Cache.Get(p) != null)
+                    {
+                        string a = ReplacePawnNames(p.GetActivity());
+                        s = $"{s} {a.StripTags()}";
+                    }
+                    return s;
+                })
+                .ToList();
+
+            string nearbyStr =
+                nearbyList.Count == 0 ? "无" :
+                nearbyList.Count > 3 ? string.Join(", ", nearbyList.Take(3)) + ", a以及其他人" :
+                string.Join(", ", nearbyList);
+
+            lines.Add("附近的人: " + nearbyStr);
         }
         else
         {
-            parts.Add("附近的人: 无");
+            lines.Add("附近没有人");
         }
 
         if (pawn.IsVisitor())
         {
-            parts.Add("正在拜访用户的殖民地");
+            lines.Add("正在拜访用户的殖民地");
         }
 
         if (pawn.IsFreeColonist && pawn.GetMapRole() == MapRole.Invading)
         {
-            parts.Add("你正远离殖民地,进攻敌军据点");
+            lines.Add("你正远离殖民地,进攻敌军据点");
         }
         else if (pawn.IsEnemy())
         {
@@ -191,19 +212,19 @@ public static class PawnService
             {
                 if (pawn.GetLord()?.LordJob is LordJob_StageThenAttack || pawn.GetLord()?.LordJob is LordJob_Siege)
                 {
-                    parts.Add("正准备入侵用户的殖民地");
+                    lines.Add("正准备入侵用户的殖民地");
                 }
                 else
                 {
-                    parts.Add("正在入侵用户的殖民地");
+                    lines.Add("正在入侵用户的殖民地");
                 }
             }
             else
             {
-                parts.Add("为家园不被攻陷而战");
+                lines.Add("为家园不被攻陷而战");
             }
 
-            return (string.Join("\n", parts), isInDanger);
+            return (string.Join("\n", lines), isInDanger);
         }
 
         // --- 3. Enemy proximity / combat info ---
@@ -213,55 +234,93 @@ public static class PawnService
             float distance = pawn.Position.DistanceTo(nearestHostile.Position);
 
             if (distance <= 10f)
-                parts.Add("威胁: 正在交火!");
+                lines.Add("威胁: 正在交火!");
             else if (distance <= 20f)
-                parts.Add("威胁: 敌人逼近!");
+                lines.Add("威胁: 敌人逼近!");
             else
-                parts.Add("警告: 这片区域附近存在敌人");
+                lines.Add("警告: 这片区域附近存在敌人");
             isInDanger = true;
         }
 
         if (!isInDanger)
-            parts.Add(Constant.Prompt);
+            lines.Add(Constant.Prompt);
 
-        return (string.Join("\n", parts), isInDanger);
+        return (string.Join("\n", lines), isInDanger);
+
+        string ReplacePawnNames(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            var map = new Dictionary<string, string>();
+            foreach (var rp in relevantPawns)
+            {
+                string key = rp.LabelShort;
+                string value = ContextHelper.GetDecoratedName(rp);
+                if (!map.ContainsKey(key))
+                    map[key] = value;
+            }
+
+            // longer names first to avoid partial replacement
+            var ordered = map.OrderByDescending(kv => kv.Key.Length).ToList();
+            return ordered.Aggregate(input, (current, kv) => current.Replace(kv.Key, kv.Value));
+        }
     }
 
     public static Pawn GetHostilePawnNearBy(this Pawn pawn)
     {
-        if (pawn == null) return null;
+        if (pawn?.Map == null) return null;
 
-        // Get all targets on the map that are hostile to the player faction
-        var hostileTargets = pawn.Map.attackTargetsCache?.TargetsHostileToFaction(pawn.Faction);
+        // 1. Choose a faction
+        Faction referenceFaction;
+
+        if (pawn.IsPrisoner || pawn.IsSlave || pawn.IsFreeColonist || pawn.IsVisitor() || pawn.IsQuestLodger())
+        {
+            // Prisoners, colonists, use player faction
+            referenceFaction = Faction.OfPlayer;
+        }
+        else
+        {
+            // enemies, wildmans, use own faction
+            referenceFaction = pawn.Faction;
+        }
+
+        if (referenceFaction == null) return null;
+
+        var hostileTargets = pawn.Map.attackTargetsCache?.TargetsHostileToFaction(referenceFaction);
+
+        if (hostileTargets == null) return null;
 
         Pawn closestPawn = null;
         float closestDistSq = float.MaxValue;
 
-        if (hostileTargets == null) return null;
-        foreach (var target in hostileTargets.Where(target => GenHostility.IsActiveThreatTo(target, pawn.Faction)))
+        foreach (var target in hostileTargets.Where(target => GenHostility.IsActiveThreatTo(target, referenceFaction)))
         {
+
             if (target.Thing is not Pawn threatPawn) continue;
             if (threatPawn.Downed) continue;
-            if (pawn.IsPrisoner)
-            {
-                // Prevent prisoners from recognizing host faction or other prisoner from hostile faction as a threat
-                if (threatPawn.Faction == pawn.HostFaction || threatPawn.IsPrisoner) continue;
-            }
+            
+            // --- 2. filter hostile ---
+
+            // a. filter normal colonist
+            if (threatPawn.IsPrisoner && threatPawn.HostFaction == Faction.OfPlayer)
+                continue;
+            if (threatPawn.IsSlave && threatPawn.HostFaction == Faction.OfPlayer)
+                continue;
+
+            // b. filter normal prisoner
+            if (pawn.IsPrisoner && threatPawn.IsPrisoner)
+                continue;
+
             Lord lord = threatPawn.GetLord();
 
             // === 1. EXCLUDE TACTICALLY RETREATING PAWNS ===
-            if (lord != null && (lord.CurLordToil is LordToil_ExitMapFighting ||
-                                 lord.CurLordToil is LordToil_ExitMap))
-            {
+            if (lord != null && lord.CurLordToil is LordToil_ExitMapFighting or LordToil_ExitMap)
                 continue;
-            }
 
             // === 2. EXCLUDE ROAMING MECH CLUSTER PAWNS ===
-            if (threatPawn.RaceProps.IsMechanoid && lord != null &&
-                lord.CurLordToil is LordToil_DefendPoint)
-            {
+            if (threatPawn.RaceProps.IsMechanoid && lord is { CurLordToil: LordToil_DefendPoint })
                 continue;
-            }
 
             // === 3. CALCULATE DISTANCE FOR VALID THREATS ===
             float distSq = pawn.Position.DistanceToSquared(threatPawn.Position);
@@ -322,10 +381,40 @@ public static class PawnService
 
         return activity;
     }
+    // NEW: recursively collect all pawn targets from the given job
+    private static void AddJobTargetsToRelevantPawns(Job job, List<Pawn> relevantPawns)
+    {
+        if (job == null) return;
 
+        var targetIndices = new List<TargetIndex>();
+        foreach (TargetIndex ind in Enum.GetValues(typeof(TargetIndex)))
+        {
+            try
+            {
+                if (job.GetTarget(ind) != (LocalTargetInfo)(Thing)null)
+                    targetIndices.Add(ind);
+            }
+            catch
+            {
+                // ignore invalid indices
+            }
+        }
+
+        foreach (var target in targetIndices.Select(job.GetTarget))
+        {
+            if (target.HasThing && target.Thing is Pawn pawn && !relevantPawns.Contains(pawn))
+            {
+                relevantPawns.Add(pawn);
+                if (pawn.CurJob != null)
+                {
+                    AddJobTargetsToRelevantPawns(pawn.CurJob, relevantPawns);
+                }
+            }
+        }
+    }
     public static MapRole GetMapRole(this Pawn pawn)
     {
-        if (pawn?.Map == null)
+        if (pawn?.Map == null || pawn.IsPrisonerOfColony)
             return MapRole.None;
 
         Map map = pawn.Map;
@@ -351,11 +440,11 @@ public static class PawnService
         {
             // === Resistance (for recruitment) ===
             float resistance = pawn.guest.resistance;
-            result += $"抵抗: {resistance:0.0} ({DescribeResistance(resistance)})\n";
+            result += $"抵抗: {resistance:0.0} ({Describer.Resistance(resistance)})\n";
 
             // === Will (for enslavement) ===
             float will = pawn.guest.will;
-            result += $"意志: {will:0.0} ({DescribeWill(will)})\n";
+            result += $"意志: {will:0.0} ({Describer.Will(will)})\n";
         }
 
         // === Suppression (slave compliance, if applicable) ===
@@ -365,7 +454,7 @@ public static class PawnService
             if (suppressionNeed != null)
             {
                 float suppression = suppressionNeed.CurLevelPercentage * 100f;
-                result += $"压制率: {suppression:0.0}% ({DescribeSuppression(suppression)})\n";
+                result += $"压制率: {suppression:0.0}% ({Describer.Suppression(suppression)})\n";
             }
         }
 
@@ -374,37 +463,12 @@ public static class PawnService
 
     public static bool IsPlayer(this Pawn pawn)
     {
+        return pawn.LabelShort == "超凡智能";
         return pawn == Cache.GetPlayer();
     }
 
     public static bool HasVocalLink(this Pawn pawn)
     {
         return pawn.health.hediffSet.HasHediff(Constant.VocalLinkDef);
-    }
-
-    private static string DescribeResistance(float value)
-    {
-        if (value <= 0f) return "完全接纳了,准备好加入殖民地";
-        if (value < 2f) return "不怎么抵触了,接近加入";
-        if (value < 6f) return "有点动摇,但保持谨慎";
-        if (value < 12f) return "不愿意加入,仍需说服";
-        return "完全不服气,招募需要花很长时间";
-    }
-
-    private static string DescribeWill(float value)
-    {
-        if (value <= 0f) return "意志崩溃,准备好成为奴隶了";
-        if (value < 2f) return "意志薄弱,易于奴役";
-        if (value < 6f) return "意志一般,也许有点反抗";
-        if (value < 12f) return "意志坚强,很难奴役";
-        return "毫无动摇,极难奴役";
-    }
-
-    private static string DescribeSuppression(float value)
-    {
-        if (value < 20f) return "光明正大地反抗,很容易抵抗或逃跑";
-        if (value < 50f) return "不稳定,经常试探服从底线";
-        if (value < 80f) return "基本上服从,但仍需警戒";
-        return "完全顺从,不会反抗";
     }
 }

@@ -1,5 +1,4 @@
 using RimTalk.Service;
-using RimWorld;
 using Verse;
 
 namespace RimTalk.Patch;

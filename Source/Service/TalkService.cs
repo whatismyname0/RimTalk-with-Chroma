@@ -165,7 +165,7 @@ public static class TalkService
             foreach (var p in allInvolvedPawns)
             {
                 var key = p.LabelShort;
-                if (!playerDict.ContainsKey(key))
+                if (!playerDict.ContainsKey(key) && !p.IsPlayer())
                 {
                     playerDict[key] = p;
                 }
@@ -184,7 +184,7 @@ public static class TalkService
                 playerDict,
                 (pawn, talkResponse) =>
                 {
-                    Logger.Debug($"Streamed {pawn.LabelShort}: {talkResponse.TalkType}: {talkResponse.Text}");
+                    Logger.Debug($"Streamed: {talkResponse}");
 
                     PawnState pawnState = Cache.Get(pawn);
                     talkResponse.Name = pawnState.Pawn.LabelShort;
@@ -282,12 +282,7 @@ public static class TalkService
             int parentTalkTick = TalkHistory.GetSpokenTick(talk.ParentTalkId);
             if (parentTalkTick == -1 || !CommonUtil.HasPassed(parentTalkTick, replyInterval)) continue;
 
-            // Create the interaction log entry, which triggers the display of the talk bubble in-game.
-            InteractionDef intDef = DefDatabase<InteractionDef>.GetNamed("RimTalkInteraction");
-            var playLogEntryInteraction = new PlayLogEntry_RimTalkInteraction(intDef, pawn, pawn, null);
-
-            Find.PlayLog.Add(playLogEntryInteraction);
-            break; // Display only one talk per tick to prevent overwhelming the screen.
+            CreateInteraction(pawn, talk);
         }
     }
 
@@ -308,17 +303,44 @@ public static class TalkService
     /// <summary>
     /// Dequeues a talk and updates its history as either spoken or ignored.
     /// </summary>
-    public static TalkResponse ConsumeTalk(PawnState pawnState)
+    private static TalkResponse ConsumeTalk(PawnState pawnState)
     {
+        // Failsafe check
+        if (pawnState.TalkResponses.Empty()) 
+            return new TalkResponse(TalkType.Other, null!, "");
+
         var talkResponse = pawnState.TalkResponses.First();
         pawnState.TalkResponses.Remove(talkResponse);
         TalkHistory.AddSpoken(talkResponse.Id);
         var apiLog = ApiHistory.GetApiLog(talkResponse.Id);
         if (apiLog != null)
             apiLog.SpokenTick = GenTicks.TicksGame;
-
         Overlay.NotifyLogUpdated();
         return talkResponse;
+    }
+
+    private static void CreateInteraction(Pawn pawn, TalkResponse talk)
+    {
+        // Create the interaction log entry, which triggers the display of the talk bubble in-game.
+        InteractionDef intDef = DefDatabase<InteractionDef>.GetNamed("RimTalkInteraction");
+        var recipient = talk.GetTarget() ?? pawn;
+        var playLogEntryInteraction = new PlayLogEntry_RimTalkInteraction(intDef, pawn, recipient, null);
+
+        Find.PlayLog.Add(playLogEntryInteraction);
+
+        InteractionDef vanillaDef = talk.GetInteractionType().ToInteractionDef();
+        if (Settings.Get().ApplyMoodAndSocialEffects && vanillaDef != null && pawn != recipient)
+        {
+            if (vanillaDef.recipientThought != null)
+            {
+                recipient.needs?.mood?.thoughts?.memories?.TryGainMemory(vanillaDef.recipientThought, pawn);
+            }
+
+            if (vanillaDef.initiatorThought != null)
+            {
+                recipient.needs?.mood?.thoughts?.memories?.TryGainMemory(vanillaDef.initiatorThought, pawn);
+            }
+        }
     }
 
     private static bool AnyPawnHasPendingResponses()

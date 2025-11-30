@@ -19,6 +19,7 @@ public class DebugWindow : Window
     private const float TimeColumnWidth = 80f;
     private const float TokensColumnWidth = 80f;
     private const float StateColumnWidth = 80f;
+    private const float InteractionTypeColumnWidth = 80f; 
     private const float ColumnPadding = 10f;
 
     private const float GroupedPawnNameWidth = 80f;
@@ -47,7 +48,7 @@ public class DebugWindow : Window
     private string _sortColumn;
     private bool _sortAscending;
     private readonly List<string> _expandedPawns;
-    private readonly HashSet<Guid> _expandedRequests = new();
+    private readonly HashSet<Guid> _expandedRequests = [];
 
     // Custom style for a smaller font
     private GUIStyle _contextStyle;
@@ -68,7 +69,7 @@ public class DebugWindow : Window
         _expandedPawns = [];
     }
 
-    public override Vector2 InitialSize => new Vector2(1000f, 600f);
+    public override Vector2 InitialSize => new(1000f, 600f);
 
     public override void PreClose()
     {
@@ -169,20 +170,35 @@ public class DebugWindow : Window
         // --- Right-aligned controls (Global Actions) ---
         float rightEdgeX = rect.xMax - 15;
 
-        // Mod Settings button
-        var modSettingsButtonRect = new Rect(rightEdgeX - 120f, rect.y, 120f, 24f);
-        if (Widgets.ButtonText(modSettingsButtonRect, "RimTalk.DebugWindow.ModSettings".Translate()))
-        {
-            Find.WindowStack.Add(new Dialog_ModSettings(LoadedModManager.GetMod<Settings>()));
-        }
+        // 1. Mod Settings button
+        var modSettingsButtonRect = new Rect(rightEdgeX - 110f, rect.y, 110f, 24f);
 
         rightEdgeX -= modSettingsButtonRect.width + ColumnPadding;
 
-        // "Enable AI Talk" checkbox
+        // 2. Export Button
+        var exportButtonRect = new Rect(rightEdgeX - 110f, rect.y, 110f, 24f);
+        if (Widgets.ButtonText(exportButtonRect, "RimTalk.DebugWindow.Export".Translate()))
+        {
+            UIUtil.ExportLogs(_requests);
+        }
+
+        rightEdgeX -= exportButtonRect.width + ColumnPadding;
+        // 3. Clear/Delete Button (Red warning color)
+        var clearButtonRect = new Rect(rightEdgeX - 110f, rect.y, 110f, 24f);
+        var prevColor = GUI.color;
+        GUI.color = new Color(1f, 0.4f, 0.4f); // Light Red
+        if (Widgets.ButtonText(clearButtonRect, "RimTalk.DebugWindow.Reset".Translate()))
+        {
+            Reset();
+        }
+        GUI.color = prevColor;
+
+        rightEdgeX -= clearButtonRect.width + ColumnPadding;
+
+        // 4. "Enable AI Talk" checkbox
         bool modEnabled = settings.IsEnabled;
-        var enabledCheckboxRect = new Rect(rightEdgeX - 150f, rect.y, 130f, 24f);
-        Widgets.CheckboxLabeled(enabledCheckboxRect, "RimTalk.DebugWindow.EnableRimTalk".Translate(),
-            ref modEnabled);
+        var enabledCheckboxRect = new Rect(rightEdgeX - 130f, rect.y, 130f, 24f);
+        Widgets.CheckboxLabeled(enabledCheckboxRect, "RimTalk.DebugWindow.EnableRimTalk".Translate(), ref modEnabled);
         settings.IsEnabled = modEnabled;
     }
 
@@ -350,7 +366,7 @@ public class DebugWindow : Window
 
             var pawnNameRect = new Rect(currentX, rowRect.y, GroupedPawnNameWidth, RowHeight);
 
-            UIUtility.DrawClickablePawnName(pawnNameRect, pawnKey, pawnState.Pawn);
+            UIUtil.DrawClickablePawnName(pawnNameRect, pawnKey, pawnState.Pawn);
 
             currentX += GroupedPawnNameWidth + ColumnPadding;
 
@@ -464,6 +480,10 @@ public class DebugWindow : Window
             "RimTalk.DebugWindow.HeaderResponse".Translate());
         currentX += responseColumnWidth + ColumnPadding;
 
+        Widgets.Label(new Rect(currentX, rect.y, InteractionTypeColumnWidth, rect.height),
+            "RimTalk.DebugWindow.HeaderInteractionType".Translate());
+        currentX += InteractionTypeColumnWidth + ColumnPadding;
+
         Widgets.Label(new Rect(currentX, rect.y, TimeColumnWidth, rect.height),
             "RimTalk.DebugWindow.HeaderTimeMs".Translate());
         currentX += TimeColumnWidth + ColumnPadding;
@@ -501,7 +521,7 @@ public class DebugWindow : Window
                 var pawnNameRect = new Rect(currentX, rowRect.y, PawnColumnWidth, RowHeight);
                 var pawn = _pawnStates.FirstOrDefault(p => p.Pawn.LabelShort == pawnName)?.Pawn;
 
-                UIUtility.DrawClickablePawnName(pawnNameRect, pawnName, pawn);
+                UIUtil.DrawClickablePawnName(pawnNameRect, pawnName, pawn);
 
                 currentX += PawnColumnWidth + ColumnPadding;
             }
@@ -509,6 +529,10 @@ public class DebugWindow : Window
             var responseRect = new Rect(currentX, rowRect.y, responseColumnWidth, RowHeight);
             Widgets.Label(responseRect, resp);
             currentX += responseColumnWidth + ColumnPadding;
+
+            string interactionType = request.InteractionType ?? "-";
+            Widgets.Label(new Rect(currentX, rowRect.y, InteractionTypeColumnWidth, RowHeight), interactionType);
+            currentX += InteractionTypeColumnWidth + ColumnPadding;
 
             string elapsedMsText = request.Response == null
                 ? ""
@@ -664,8 +688,8 @@ public class DebugWindow : Window
 
     private float CalculateResponseColumnWidth(float totalWidth, bool includePawnColumn)
     {
-        float fixedWidth = TimestampColumnWidth + TimeColumnWidth + TokensColumnWidth + StateColumnWidth;
-        int columnGaps = 5;
+        float fixedWidth = TimestampColumnWidth + TimeColumnWidth + TokensColumnWidth + StateColumnWidth + InteractionTypeColumnWidth;
+        int columnGaps = 6;
 
         if (includePawnColumn)
         {
@@ -755,5 +779,14 @@ public class DebugWindow : Window
         }
 
         return "";
+    }
+
+    private void Reset()
+    {
+        TalkHistory.Clear();
+        Stats.Reset();
+        ApiHistory.Clear();
+        UpdateData();
+        Messages.Message("Conversation history cleared.", MessageTypeDefOf.TaskCompletion, false);
     }
 }

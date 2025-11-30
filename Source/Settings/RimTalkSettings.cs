@@ -13,7 +13,7 @@ public class RimTalkSettings : ModSettings
     public bool UseCloudProviders = true;
     public bool UseSimpleConfig = true;
     public string SimpleApiKey = "";
-    public readonly bool IsUsingFallbackModel = false;
+    public bool IsUsingFallbackModel = false;
     public bool IsEnabled = true;
     public int TalkInterval = 5;
     public const int ReplyInterval = 2;
@@ -30,8 +30,10 @@ public class RimTalkSettings : ModSettings
     public bool AllowEnemiesToTalk = false;
     public bool AllowCustomConversation = true;
     public bool AllowBabiesToTalk = true;
+    public bool ApplyMoodAndSocialEffects = false;
     public int DisableAiAtSpeed = 0;
     public ButtonDisplayMode ButtonDisplay = ButtonDisplayMode.Tab;
+    public ContextSettings Context = new();
 
     // Debug mode settings
     public bool DebugModeEnabled = false;
@@ -159,6 +161,8 @@ public class RimTalkSettings : ModSettings
         Scribe_Values.Look(ref AllowPrisonersToTalk, "allowPrisonersToTalk", true);
         Scribe_Values.Look(ref AllowOtherFactionsToTalk, "allowOtherFactionsToTalk", false);
         Scribe_Values.Look(ref AllowEnemiesToTalk, "allowEnemiesToTalk", false);
+        Scribe_Values.Look(ref ApplyMoodAndSocialEffects, "applyMoodAndSocialEffects", false);
+        Scribe_Deep.Look(ref Context, "context");
         Scribe_Values.Look(ref DisableAiAtSpeed, "DisableAiAtSpeed", 0);
         Scribe_Collections.Look(ref EnabledArchivableTypes, "enabledArchivableTypes", LookMode.Value, LookMode.Value);
         Scribe_Values.Look(ref AllowBabiesToTalk, "allowBabiesToTalk", true);
@@ -212,6 +216,9 @@ public class RimTalkSettings : ModSettings
                 
         if (EnabledArchivableTypes == null)
             EnabledArchivableTypes = new Dictionary<string, bool>();
+
+        if (Context == null)
+            Context = new ContextSettings();
             
         // Ensure we have at least one cloud config
         if (CloudConfigs.Count == 0)

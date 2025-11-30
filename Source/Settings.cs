@@ -23,6 +23,7 @@ public partial class Settings : Mod
     {
         Basic,
         AIInstruction,
+        Context,
         AIContext,
         AIPromptOfChromaSearchQueryGeneration,
         EventFilter
@@ -160,16 +161,18 @@ public partial class Settings : Mod
         sb.AppendLine(settings.AllowOtherFactionsToTalk.ToString());
         sb.AppendLine(settings.AllowEnemiesToTalk.ToString());
         sb.AppendLine(settings.AllowBabiesToTalk.ToString());
+        sb.AppendLine(settings.ApplyMoodAndSocialEffects.ToString());
 
         return sb.ToString().GetHashCode();
     }
 
     private void DrawTabButtons(Rect rect)
     {
-        float tabWidth = rect.width / 5f;
+        float tabWidth = rect.width / 6f;
 
         Rect basicTabRect = new Rect(rect.x, rect.y, tabWidth, 30f);
         Rect instructionTabRect = new Rect(rect.x + tabWidth, rect.y, tabWidth, 30f);
+        Rect context1TabRect = new Rect(rect.x + tabWidth * 2, rect.y, tabWidth, 30f);
         Rect contextTabRect = new Rect(rect.x + tabWidth * 2, rect.y, tabWidth, 30f);
         Rect AIPromptOfChromaSearchQueryGenerationTabRect = new Rect(rect.x + tabWidth * 3, rect.y, tabWidth, 30f);
         Rect filterTabRect = new Rect(rect.x + tabWidth * 4, rect.y, tabWidth, 30f);
@@ -186,6 +189,13 @@ public partial class Settings : Mod
         if (Widgets.ButtonText(instructionTabRect, "RimTalk.Settings.AIInstruction".Translate()))
         {
             _currentTab = SettingsTab.AIInstruction;
+        }
+        
+        // Context Tab
+        GUI.color = _currentTab == SettingsTab.Context ? Color.white : Color.gray;
+        if (Widgets.ButtonText(context1TabRect, "RimTalk.Settings.ContextFilter".Translate()))
+        {
+            _currentTab = SettingsTab.Context;
         }
 
         // AI Context Tab
@@ -239,6 +249,9 @@ public partial class Settings : Mod
             case SettingsTab.AIInstruction:
                 DrawAIInstructionSettings(listing);
                 break;
+            case SettingsTab.Context:
+                DrawContextFilterSettings(listing);
+                break;
             case SettingsTab.AIContext:
                 DrawAIContextSettings(listing);
                 break;
@@ -268,6 +281,9 @@ public partial class Settings : Mod
                 break;
             case SettingsTab.AIInstruction:
                 DrawAIInstructionSettings(listing);
+                break;
+            case SettingsTab.Context:
+                DrawContextFilterSettings(listing);
                 break;
             case SettingsTab.AIContext:
                 DrawAIContextSettings(listing);

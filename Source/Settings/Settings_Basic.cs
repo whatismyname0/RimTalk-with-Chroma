@@ -79,6 +79,10 @@ public partial class Settings
         leftListing.CheckboxLabeled("RimTalk.Settings.AllowCustomConversation".Translate().ToString(),
             ref settings.AllowCustomConversation,
             "RimTalk.Settings.AllowCustomConversationTooltip".Translate().ToString());
+        leftListing.Gap();
+        leftListing.CheckboxLabeled("RimTalk.Settings.ApplyMoodAndSocialEffects".Translate().ToString(),
+            ref settings.ApplyMoodAndSocialEffects,
+            "RimTalk.Settings.ApplyMoodAndSocialEffectsTooltip".Translate().ToString());
 
         leftListing.End();
 
@@ -202,6 +206,7 @@ public partial class Settings
             settings.AllowEnemiesToTalk = false;
             settings.AllowBabiesToTalk = true;
             settings.AllowCustomConversation = true;
+            settings.ApplyMoodAndSocialEffects = false;
             settings.UseSimpleConfig = true;
             settings.DisableAiAtSpeed = 0;
             settings.ButtonDisplay = ButtonDisplayMode.Tab;

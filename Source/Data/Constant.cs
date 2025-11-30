@@ -29,6 +29,12 @@ Enemy: hostile, aggressive; terse commands/threats
 
 Monologue = 1 turn. Conversation = 4-8 short turns";
 
+    private const string SocialInstruction = """
+                                           Optional keys (Include only if social interaction occurs):
+                                           "act": Insult, Slight, Chat, Kind
+                                           "target": targetName
+                                           """;
+
     public static readonly string DefaultContext =
         @"智人种是没经过基因改造的人类，他们说话相当正常。寿命70岁
 ";
@@ -46,10 +52,18 @@ num: 你需要获取的相关数据数(根据查询复杂度调整,1-10之间).
 Return JSON array only, with objects containing ""name"" and ""text"" string keys";
 
     // Get the current instruction from settings or fallback to default, always append JSON instruction
-    public static string Instruction =>
-        (string.IsNullOrWhiteSpace(Settings.Get().CustomInstruction)
-            ? DefaultInstruction
-            : Settings.Get().CustomInstruction) + JsonInstruction;
+    public static string Instruction
+    {
+        get
+        {
+            var settings = Settings.Get();
+            var baseInstruction = string.IsNullOrWhiteSpace(settings.CustomInstruction)
+                ? DefaultInstruction
+                : settings.CustomInstruction;
+
+            return baseInstruction + "\n" + JsonInstruction + (settings.ApplyMoodAndSocialEffects ? "\n" + SocialInstruction : "");
+        }
+    }
 
     public static string Context =>
         string.IsNullOrWhiteSpace(Settings.Get().CustomContext)
